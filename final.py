@@ -30,3 +30,14 @@ class Road:
     @property
     def name(self):
         return self.__name
+
+class Agency:
+    def __init__(self):
+        self.__roads = []
+        self.__cities = []
+    
+    def add_road(self, road: Road):
+        self.__roads.append(road)
+    
+    def add_city(self, city: City):
+        self.__cities.append(city)
