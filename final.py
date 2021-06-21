@@ -4,9 +4,11 @@ class ModelNotFoundError(Exception):
         self.model_name = model
         self.id = id
 
+
 class EndProgramException(Exception):
     def __init__(self):
         super().__init__()
+
 
 class City:
     def __init__(self, **kwargs):
@@ -66,7 +68,7 @@ class Road:
         return self.id == value.id
 
     def __calculate_time(self, src_index: int, dst_index: int) -> dict:
-        hours = abs(dst_index - src_index) / len(self.__through) * (int(self.__length) / int(self.__speed_limit))
+        hours = int(self.__length) / int(self.__speed_limit)
         minutes = hours * 60
         d = minutes // (24 * 60)
         minutes -= d * 24 * 60
@@ -87,7 +89,6 @@ class Road:
         while index >= 0 and way[index] != dst:
             index -= 1
         dst_index = index
-        result = {}
         if not self.is_bi_directional and src_index > dst_index:
             return {'status': False}
         if src_index == len(way) or dst_index == -1:
@@ -164,7 +165,6 @@ class UserInterface:
 
     def show_help(self):
         print("Select a number from shown menu and enter. For example 1 is for help.")
-        self.show_main_menu()
     
     def show_add_delete_menu(self):
         print("Select model:")
@@ -179,13 +179,14 @@ class UserInterface:
 
     def handle_help_cmd(self):
         self.show_help()
+        self.show_main_menu()
     
     def handle_add_cmd(self):
         self.show_add_delete_menu()
-        select = int(self.get_input())
-        if select == 1:
+        select = self.get_input()
+        if select == '1':
             self.handle_add_model('City')
-        elif select == 2:
+        elif select == '2':
             self.handle_add_model('Road')
 
     def handle_delete_cmd(self):
@@ -221,7 +222,6 @@ class UserInterface:
             self.show_main_menu()
 
     def handle_delete_model(self, model: str):
-        kwargs = {}
         id = int(self.get_input())
         try:
             if model == 'City':
@@ -236,12 +236,10 @@ class UserInterface:
 
     def handle_path_cmd(self):
         src_id, dst_id = [int(x) for x in self.get_input().split(':')]
-        try:
-            src_city_name = self.agency.get_city_name(src_id)
-            dst_city_name = self.agency.get_city_name(dst_id)
-        except ModelNotFoundError as err:
-            print(f"OOOOOOps{err.model_name} with id {err.id} not found!")
+        src_city_name = self.agency.get_city_name(src_id)
+        dst_city_name = self.agency.get_city_name(dst_id)
         pathes = self.agency.get_pathes(src_id, dst_id)
+        pathes.sort(key=lambda path: path['time'].values())
         for path in pathes:
             road_name = path['road_name']
             dd = int(path['time']['days'])
@@ -251,19 +249,20 @@ class UserInterface:
         self.show_main_menu()
 
     def get_command_and_execute(self):
-        select = int(self.get_input())
-        if select == 1:
-            self.show_help()
-        elif select == 2:
+        select = self.get_input()
+        if select == '1':
+            self.handle_help_cmd()
+        elif select == '2':
             self.handle_add_cmd()
-        elif select == 3:
+        elif select == '3':
             self.handle_delete_cmd()
-        elif select == 4:
+        elif select == '4':
             self.handle_path_cmd()
-        elif select == 5:
+        elif select == '5':
             raise EndProgramException
         else:
             print("Invalid input. Please enter 1 for more info.")
+            self.show_main_menu()
 
 if __name__ == '__main__':
     agency = Agency()
