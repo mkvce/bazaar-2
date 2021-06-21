@@ -9,13 +9,13 @@ class EndProgramException(Exception):
         super().__init__()
 
 class City:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         self.__id = kwargs.get('id')
         self.__name = kwargs.get('name')
     
     @property
     def id(self):
-        return self.__id
+        return int(self.__id)
     
     @property
     def name(self):
@@ -23,7 +23,7 @@ class City:
 
     @classmethod
     def field_names(cls) -> list:
-        city = City({})
+        city = City()
         fields = city.__dict__.keys()
         return fields
 
@@ -32,19 +32,22 @@ class City:
 
 
 class Road:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         self.__id = kwargs.get('id')
         self.__name = kwargs.get('name')
         self.__from = kwargs.get('from')
         self.__to = kwargs.get('to')
-        self.__through = kwargs.get('through')
+        if kwargs.get('through'):
+            self.__through = [int(x) for x in kwargs.get('through')[1:-1].split(',')]
+        else:
+            self.__through = None
         self.__speed_limit = kwargs.get('speed_limit')
         self.__length = kwargs.get('length')
         self.__bi_directional = kwargs.get('bi_directional')
-    
+
     @property
     def id(self):
-        return self.__id
+        return int(self.__id)
     
     @property
     def name(self):
@@ -52,7 +55,7 @@ class Road:
 
     @classmethod
     def field_names(cls) -> list:
-        road = Road({})
+        road = Road()
         fields = road.__dict__.keys()
         return fields
 
@@ -63,29 +66,29 @@ class Road:
         return self.id == value.id
 
     def __calculate_time(self, src_index: int, dst_index: int) -> dict:
-        hours = abs(dst_index - src_index) / len(self.__through) * (self.__length / self.__speed_limit)
+        hours = abs(dst_index - src_index) / len(self.__through) * (int(self.__length) / int(self.__speed_limit))
         minutes = hours * 60
-        m = minutes % 60
-        minutes -= m
-        h = minutes % (24 * 60)
-        minutes -= 60 * h
         d = minutes // (24 * 60)
+        minutes -= d * 24 * 60
+        h = minutes // 60
+        minutes -= 60 * h
+        m = minutes
         return {'days': d, 'hours': h, 'minutes': m}
 
     def get_path(self, src: int, dst: int) -> dict:
-        way = self.__through
-        way.append(self.__to)
+        way = self.__through.copy()
+        way.append(int(self.__to))
         dst_index = -1
         index = 0
-        while index < len(way) and self.__through[index] != src:
+        while index < len(way) and way[index] != src:
             index += 1
         src_index = index
         index = len(way) - 1
-        while index >= 0 and self.__through[index] != dst:
+        while index >= 0 and way[index] != dst:
             index -= 1
         dst_index = index
         result = {}
-        if not self.bi_directional and src_index > dst_index:
+        if not self.is_bi_directional and src_index > dst_index:
             return {'status': False}
         if src_index == len(way) or dst_index == -1:
             return {'status': False}
@@ -116,7 +119,7 @@ class Agency:
     def delete_city(self, id: int):
         for i in range(len(self.__cities)):
             if self.__cities[i].id == id:
-                self.__cities[i].pop(i)
+                self.__cities.pop(i)
                 break
         else:
             raise ModelNotFoundError('City', id)
@@ -124,12 +127,12 @@ class Agency:
     def delete_road(self, id: int):
         for i in range(len(self.__roads)):
             if self.__roads[i].id == id:
-                self.__roads[i].pop(i)
+                self.__roads.pop(i)
                 break
         else:
             raise ModelNotFoundError('Road', id)
 
-    def get_city_name(self, id: int):
+    def get_city_name(self, id: int) -> str:
         for city in self.__cities:
             if city.id == id:
                 return city.name
@@ -138,7 +141,7 @@ class Agency:
     def get_pathes(self, src: int, dst: int) -> list:
         pathes = []
         for road in self.__roads:
-            path = road.get_path()
+            path = road.get_path(src, dst)
             if path.get('status'):
                 pathes.append(path)
         return pathes
@@ -161,6 +164,7 @@ class UserInterface:
 
     def show_help(self):
         print("Select a number from shown menu and enter. For example 1 is for help.")
+        self.show_main_menu()
     
     def show_add_delete_menu(self):
         print("Select model:")
@@ -203,12 +207,12 @@ class UserInterface:
         for field in self.__get_model_fields(model):
             if f'_{model}__' in field:
                 field = field[len(f'_{model}__'):]
-            print(f"{field}=?", end='')
-            kwargs[field] = self.get_input()     
+            print(f"{field}=?")
+            kwargs[field] = self.get_input()
         if model == 'City':
-            self.agency.add_city(City(kwargs))
+            self.agency.add_city(City(**kwargs))
         elif model == 'Road':
-            self.agency.add_road(Road(kwargs))
+            self.agency.add_road(Road(**kwargs))
         self.show_model_added_menu(model, kwargs['id'])
         select = int(self.get_input())
         if select == 1:
@@ -232,15 +236,18 @@ class UserInterface:
 
     def handle_path_cmd(self):
         src_id, dst_id = [int(x) for x in self.get_input().split(':')]
-        src_city_name = self.agency.get_city_name(src_id)
-        dst_city_name = self.agency.get_city_name(dst_id)
+        try:
+            src_city_name = self.agency.get_city_name(src_id)
+            dst_city_name = self.agency.get_city_name(dst_id)
+        except ModelNotFoundError as err:
+            print(f"OOOOOOps{err.model_name} with id {err.id} not found!")
         pathes = self.agency.get_pathes(src_id, dst_id)
         for path in pathes:
             road_name = path['road_name']
-            dd = path['time']['days']
-            hh = path['time']['hours']
-            mm = path['time']['minutes']
-            print(f"{src_city_name}:{dst_city_name} via Road {road_name}: Takes {dd:.2d}:{mm:.2d}:{mm:.2d}")
+            dd = int(path['time']['days'])
+            hh = int(path['time']['hours'])
+            mm = int(path['time']['minutes'])
+            print(f"{src_city_name}:{dst_city_name} via Road {road_name}: Takes {dd:02d}:{hh:02d}:{mm:02d}")
         self.show_main_menu()
 
     def get_command_and_execute(self):
