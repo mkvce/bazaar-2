@@ -22,7 +22,6 @@ class City:
     def field_names(cls) -> list:
         city = City({})
         fields = city.__dict__.keys()
-        del(city)
         return fields
 
     def __eq__(self, value):
@@ -52,7 +51,6 @@ class Road:
     def field_names(cls) -> list:
         road = Road({})
         fields = road.__dict__.keys()
-        del(road)
         return fields
 
     def is_bi_directional(self):
@@ -81,6 +79,22 @@ class Agency:
                 break
         else:
             self.__cities.append(city)
+
+    def delete_city(self, id: int):
+        for i in range(len(self.__cities)):
+            if self.__cities[i].id == id:
+                self.__cities[i].pop(i)
+                break
+        else:
+            raise ModelNotFoundError('City', id)
+    
+    def delete_road(self, id: int):
+        for i in range(len(self.__roads)):
+            if self.__roads[i].id == id:
+                self.__roads[i].pop(i)
+                break
+        else:
+            raise ModelNotFoundError('Road', id)
 
 class UserInterface:
     def __init__(self):
@@ -159,3 +173,17 @@ class UserInterface:
             self.handle_add_model(model)
         elif select == 2:
             self.show_main_menu()
+
+    def handle_delete_model(self, model: str):
+        kwargs = {}
+        id = int(self.get_input())
+        try:
+            if model == 'City':
+                self.agency.delete_city(id)
+            elif model == 'Road':
+                self.agency.delete_road(id)
+        except ModelNotFoundError as err:
+            print(f"{err.model_name} with id {err.id} not found!")
+        else:
+            print(f"{model}:{id} deleted!")
+        self.show_main_menu()
