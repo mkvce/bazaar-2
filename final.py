@@ -1,3 +1,10 @@
+class ModelNotFoundError(Exception):
+    def __init__(self, model: str, id: int):
+        super().__init__()
+        self.model_name = model
+        self.id = id
+
+
 class City:
     def __init__(self, *args, **kwargs):
         self.__id = kwargs.get('id')
@@ -17,6 +24,9 @@ class City:
         fields = city.__dict__.keys()
         del(city)
         return fields
+
+    def __eq__(self, value):
+        return self.id == value.id
 
 
 class Road:
@@ -48,16 +58,29 @@ class Road:
     def is_bi_directional(self):
         return self.__bi_directional
 
+    def __eq__(self, value):
+        return self.id == value.id
+
 class Agency:
     def __init__(self):
         self.__roads = []
         self.__cities = []
     
     def add_road(self, road: Road):
-        self.__roads.append(road)
+        for i in range(len(self.__roads)):
+            if self.__roads[i] == road:
+                self.__roads[i] = road
+                break
+        else:
+            self.__roads.append(road)
     
     def add_city(self, city: City):
-        self.__cities.append(city)
+        for i in range(len(self.__cities)):
+            if self.__cities[i] == city:
+                self.__cities[i] = city
+                break
+        else:
+            self.__cities.append(city)
 
 class UserInterface:
     def __init__(self):
@@ -81,6 +104,12 @@ class UserInterface:
         print("Select model:")
         print("1. City")
         print("2. Road")
+
+    def show_model_added_menu(self, model: str, id: int):
+        print(f"{model} with id={id} added!")
+        print("Select your next action")
+        print(f"1. Add another {model}")
+        print("2. Main Menu")
 
     def handle_help_cmd(self):
         self.show_help()
@@ -107,11 +136,26 @@ class UserInterface:
     def exit(self):
         pass
 
-    def handle_add_city(self):
+    def __get_model_fields(self, model: str) -> list:
+        if model == 'City':
+            return City.field_names()
+        elif model == 'Road':
+            return Road.field_names()
+
+    def handle_add_model(self, model: str):
         kwargs = {}
-        for field in City.field_names():
-            if '_City__' in field:
-                field = field[7:]
+        for field in self.__get_model_fields(model):
+            if f'_{model}__' in field:
+                field = field[len(f'_{model}__'):]
             print(f"{field}=?", end='')
-            kwargs[field] = self.get_input()
-        self.agency.add_city(City(kwargs))
+            kwargs[field] = self.get_input()     
+        if model == 'City':
+            self.agency.add_city(City(kwargs))
+        elif model == 'Road':
+            self.agency.add_road(Road(kwargs))
+        self.show_model_added_menu(model, kwargs['id'])
+        select = int(self.get_input())
+        if select == 1:
+            self.handle_add_model(model)
+        elif select == 2:
+            self.show_main_menu()
