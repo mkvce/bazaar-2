@@ -4,6 +4,9 @@ class ModelNotFoundError(Exception):
         self.model_name = model
         self.id = id
 
+class EndProgramException(Exception):
+    def __init__(self):
+        super().__init__()
 
 class City:
     def __init__(self, *args, **kwargs):
@@ -239,3 +242,28 @@ class UserInterface:
             mm = path['time']['minutes']
             print(f"{src_city_name}:{dst_city_name} via Road {road_name}: Takes {dd:.2d}:{mm:.2d}:{mm:.2d}")
         self.show_main_menu()
+
+    def get_command_and_execute(self):
+        select = int(self.get_input())
+        if select == 1:
+            self.show_help()
+        elif select == 2:
+            self.handle_add_cmd()
+        elif select == 3:
+            self.handle_delete_cmd()
+        elif select == 4:
+            self.handle_path_cmd()
+        elif select == 5:
+            raise EndProgramException
+        else:
+            print("Invalid input. Please enter 1 for more info.")
+
+if __name__ == '__main__':
+    agency = Agency()
+    UI = UserInterface(agency)
+    UI.show_main_menu()
+    while True:
+        try:
+            UI.get_command_and_execute()
+        except EndProgramException:
+            break
