@@ -14,6 +14,7 @@ class City:
     def __init__(self, **kwargs):
         self.__id = kwargs.get('id')
         self.__name = kwargs.get('name')
+        self.__country = kwargs.get('country')
     
     @property
     def id(self):
@@ -23,14 +24,54 @@ class City:
     def name(self):
         return self.__name
 
+    @property
+    def country_id(self):
+        return int(self.__country)
+
     @classmethod
     def field_names(cls) -> list:
         city = City()
         fields = city.__dict__.keys()
         return fields
 
+    def export(self):
+        dump = ''
+        for value in self.__dict__.values():
+            dump += value + '\n'
+        return dump
+
     def __eq__(self, value):
         return self.id == value.id
+
+
+class Country:
+    def __init__(self, **kwargs):
+        self.__id = kwargs.get('id')
+        self.__name = kwargs.get('name')
+    
+    @property
+    def id(self):
+        return int(self.__id)
+
+    @property
+    def name(self):
+        return self.__name
+
+    def __eq__(self, value):
+        return self.id == value.id
+
+    @classmethod
+    def field_names(cls) -> list:
+        country = Country()
+        fields = country.__dict__.keys()
+        return fields
+
+    def export(self):
+        dump = ''
+        for value in self.__dict__.values():
+            dump += value + '\n'
+        return dump
+
 
 
 class Path:
@@ -54,7 +95,7 @@ class Road:
         self.__from = kwargs.get('from')
         self.__to = kwargs.get('to')
         if kwargs.get('through'):
-            self.__through = [int(x) for x in kwargs.get('through')[1:-1].split(',')]
+            self.__through = [int(x) for x in kwargs.get('through')[1:-1].replace(' ','').split(',')]
         else:
             self.__through = None
         self.__speed_limit = kwargs.get('speed_limit')
@@ -74,6 +115,12 @@ class Road:
         road = Road()
         fields = road.__dict__.keys()
         return fields
+
+    def export(self):
+        dump = ''
+        for value in self.__dict__.values():
+            dump += value + '\n'
+        return dump
 
     def is_bi_directional(self):
         return self.__bi_directional
@@ -112,8 +159,9 @@ class Road:
 
 class Agency:
     def __init__(self):
-        self.__roads = []
         self.__cities = []
+        self.__roads = []
+        self.__countries = []
     
     def add_road(self, road: Road):
         for i in range(len(self.__roads)):
@@ -131,6 +179,14 @@ class Agency:
         else:
             self.__cities.append(city)
 
+    def add_country(self, country: Country):
+        for i in range(len(self.__countries)):
+            if self.__countries[i] == country:
+                self.__countries[i] = country
+                break
+        else:
+            self.__countries.append(country)
+
     def delete_city(self, id: int):
         for i in range(len(self.__cities)):
             if self.__cities[i].id == id:
@@ -147,11 +203,32 @@ class Agency:
         else:
             raise ModelNotFoundError('Road', id)
 
+    def delete_country(self, id: int):
+        for i in range(len(self.__countries)):
+            if self.__countries[i].id == id:
+                self.__countries.pop(i)
+                break
+        else:
+            raise ModelNotFoundError('Country', id)
+
     def get_city_name(self, id: int) -> str:
         for city in self.__cities:
             if city.id == id:
                 return city.name
         raise ModelNotFoundError('City', id)
+
+    def get_country_name(self, id: int):
+        for country in self.__countries:
+            if country.id == id:
+                return country.name
+        raise ModelNotFoundError('Country', id)
+
+    def get_country_of_city_name(self, id: int):
+        for city in self.__cities:
+            if city.id == id:
+                return self.get_country_name(city.country_id)
+        raise ModelNotFoundError('City', id)
+
 
     def get_pathes(self, src: int, dst: int) -> list:
         pathes = []
@@ -160,6 +237,45 @@ class Agency:
             if path:
                 pathes.append(path)
         return pathes
+
+    def export(self):
+        ADD = '2'
+        CITY = '1'
+        ROAD = '2'
+        COUNTRY = '3'
+        ADD_ANOTHER = '1'
+        DONE = '2'
+        with open('dump.txt', 'w') as dump:
+            if self.__cities:
+                dump.write(ADD)
+                dump.write('\n')
+                dump.write(CITY)
+                dump.write('\n')
+                for city in self.__cities[:-1]:
+                    dump.write(city.export())
+                    dump.write(ADD_ANOTHER)
+                dump.write(self.__cities[-1].export())
+                dump.write(DONE)
+            if self.__roads:
+                dump.write(ADD)
+                dump.write('\n')
+                dump.write(ROAD)
+                dump.write('\n')
+                for road in self.__roads[:-1]:
+                    dump.write(road.export())
+                    dump.write(ADD_ANOTHER)
+                dump.write(self.__roads[-1].export())
+                dump.write(DONE)
+            if self.__countries:
+                dump.write(ADD)
+                dump.write('\n')
+                dump.write(ROAD)
+                dump.write('\n')
+                for country in self.__countries[:-1]:
+                    dump.write(country.export())
+                    dump.write(ADD_ANOTHER)
+                dump.write(self.__countries[-1].export())
+                dump.write(DONE)
 
 
 class UserInterface:
@@ -175,7 +291,8 @@ class UserInterface:
         print("2. Add")
         print("3. Delete")
         print("4. Path")
-        print("5. Exit")
+        print("5. Export")
+        print("6. Exit")
 
     def show_help(self):
         print("Select a number from shown menu and enter. For example 1 is for help.")
@@ -184,6 +301,7 @@ class UserInterface:
         print("Select model:")
         print("1. City")
         print("2. Road")
+        print("3. Country")
 
     def show_model_added_menu(self, model: str, id: int):
         print(f"{model} with id={id} added!")
@@ -202,6 +320,9 @@ class UserInterface:
             self.handle_add_model('City')
         elif select == '2':
             self.handle_add_model('Road')
+        elif select == '3':
+            self.handle_add_model('Country')
+
 
     def handle_delete_cmd(self):
         self.show_add_delete_menu()
@@ -210,12 +331,17 @@ class UserInterface:
             self.handle_delete_model('City')
         elif select == 2:
             self.handle_delete_model('Road')
+        elif select == 3:
+            self.handle_delete_model('Country')
 
     def __get_model_fields(self, model: str) -> list:
         if model == 'City':
             return City.field_names()
         elif model == 'Road':
             return Road.field_names()
+        elif model == 'Country':
+            return Country.field_names()
+        
 
     def handle_add_model(self, model: str):
         kwargs = {}
@@ -228,6 +354,8 @@ class UserInterface:
             self.agency.add_city(City(**kwargs))
         elif model == 'Road':
             self.agency.add_road(Road(**kwargs))
+        elif model == 'Country':
+            self.agency.add_country(Country(**kwargs))
         self.show_model_added_menu(model, kwargs['id'])
         select = int(self.get_input())
         if select == 1:
@@ -242,6 +370,8 @@ class UserInterface:
                 self.agency.delete_city(id)
             elif model == 'Road':
                 self.agency.delete_road(id)
+            elif model == 'Country':
+                self.agency.delete_country(id)
         except ModelNotFoundError as err:
             print(f"{err.model_name} with id {err.id} not found!")
         else:
@@ -251,7 +381,9 @@ class UserInterface:
     def handle_path_cmd(self):
         src_id, dst_id = [int(x) for x in self.get_input().split(':')]
         src_city_name = self.agency.get_city_name(src_id)
+        src_country_name = self.agency.get_country_of_city_name(src_id)
         dst_city_name = self.agency.get_city_name(dst_id)
+        dst_country_name = self.agency.get_country_of_city_name(dst_id)
         pathes = self.agency.get_pathes(src_id, dst_id)
         pathes.sort(key=lambda path: path.time.values())
         for path in pathes:
@@ -259,7 +391,11 @@ class UserInterface:
             dd = int(path.time['days'])
             hh = int(path.time['hours'])
             mm = int(path.time['minutes'])
-            print(f"{src_city_name}:{dst_city_name} via Road {road_name}: Takes {dd:02d}:{hh:02d}:{mm:02d}")
+            print(f"{src_country_name}-{src_city_name}:{dst_country_name}-{dst_city_name} via Road {road_name}: Takes {dd:02d}:{hh:02d}:{mm:02d}")
+        self.show_main_menu()
+
+    def handle_export_cmd(self):
+        self.agency.export()
         self.show_main_menu()
 
     def get_command_and_execute(self):
@@ -273,6 +409,8 @@ class UserInterface:
         elif select == '4':
             self.handle_path_cmd()
         elif select == '5':
+            self.handle_export_cmd()
+        elif select == '6':
             raise EndProgramException
         else:
             print("Invalid input. Please enter 1 for more info.")
