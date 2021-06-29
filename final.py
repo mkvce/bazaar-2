@@ -33,6 +33,20 @@ class City:
         return self.id == value.id
 
 
+class Path:
+    def __init__(self, status: bool=False, road_name: str='', time: dict={}):
+        self.__status = status
+        self.road_name = road_name
+        self.__time = time
+    
+    def __bool__(self):
+        return self.__status
+
+    @property
+    def time(self) -> dict:
+        return self.__time
+
+
 class Road:
     def __init__(self, **kwargs):
         self.__id = kwargs.get('id')
@@ -77,23 +91,23 @@ class Road:
         m = minutes
         return {'days': d, 'hours': h, 'minutes': m}
 
-    def get_path(self, src: int, dst: int) -> dict:
+    def get_path(self, src: int, dst: int) -> Path:
         way = self.__through.copy()
         way.append(int(self.__to))
         dst_index = -1
-        index = 0
-        while index < len(way) and way[index] != src:
-            index += 1
-        src_index = index
-        index = len(way) - 1
-        while index >= 0 and way[index] != dst:
-            index -= 1
-        dst_index = index
+        try:
+            src_index = way.index(src)
+        except ValueError:
+            src_index = len(way)
+        try:
+            dst_index = way.index(dst)
+        except ValueError:
+            dst_index = -1
         if not self.is_bi_directional and src_index > dst_index:
-            return {'status': False}
+            return Path()
         if src_index == len(way) or dst_index == -1:
-            return {'status': False}
-        return {'status': True, 'road_name': self.name, 'time': self.__calculate_time(src_index, dst_index)}   
+            return Path()
+        return Path(True, self.name, self.__calculate_time(src_index, dst_index))
 
 
 class Agency:
@@ -143,7 +157,7 @@ class Agency:
         pathes = []
         for road in self.__roads:
             path = road.get_path(src, dst)
-            if path.get('status'):
+            if path:
                 pathes.append(path)
         return pathes
 
@@ -239,12 +253,12 @@ class UserInterface:
         src_city_name = self.agency.get_city_name(src_id)
         dst_city_name = self.agency.get_city_name(dst_id)
         pathes = self.agency.get_pathes(src_id, dst_id)
-        pathes.sort(key=lambda path: path['time'].values())
+        pathes.sort(key=lambda path: path.time.values())
         for path in pathes:
-            road_name = path['road_name']
-            dd = int(path['time']['days'])
-            hh = int(path['time']['hours'])
-            mm = int(path['time']['minutes'])
+            road_name = path.road_name
+            dd = int(path.time['days'])
+            hh = int(path.time['hours'])
+            mm = int(path.time['minutes'])
             print(f"{src_city_name}:{dst_city_name} via Road {road_name}: Takes {dd:02d}:{hh:02d}:{mm:02d}")
         self.show_main_menu()
 
